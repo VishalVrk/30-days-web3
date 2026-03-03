@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-ec7f6274829a834922b6cfd40c535352fbf1b5a0",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/Uber.sol": "project/contracts/Uber.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/Uber.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ncontract Uber{\n    enum RideStatus{\n        Requested,\n        Accepted,\n        Completed,\n        Cancelled\n    }\n\n    struct Ride{\n        address rider;\n        address driver;\n        uint256 fare;\n        RideStatus status;\n    }\n\n    uint256 public rideCounter;\n\n    mapping(uint256 => Ride) public rides;\n    mapping(address => bool) public registeredDrivers;\n\n    event DriverRegistered(address driver);\n    event RideRequested(uint256 rideId, address rider, uint256 fare);\n    event RideAccepted(uint256 rideId, address driver);\n    event RideCompleted(uint256 rideId);\n\n    // Register as driver\n    function registerDriver() external {\n        registeredDrivers[msg.sender] = true;\n        emit DriverRegistered(msg.sender);\n    }\n\n    // Rider requests ride (sends ETH as fare)\n    function requestRide() external payable {\n        require(msg.value > 0, \"Fare must be greater than 0\");\n\n        rideCounter++;\n\n        rides[rideCounter] = Ride({\n            rider: msg.sender,\n            driver: address(0),\n            fare: msg.value,\n            status: RideStatus.Requested\n        });\n\n        emit RideRequested(rideCounter, msg.sender, msg.value);\n    }\n\n    // Driver accepts ride\n    function acceptRide(uint256 rideId) external {\n        require(registeredDrivers[msg.sender], \"Not registered driver\");\n\n        Ride storage ride = rides[rideId];\n\n        require(ride.status == RideStatus.Requested, \"Ride not available\");\n\n        ride.driver = msg.sender;\n        ride.status = RideStatus.Accepted;\n\n        emit RideAccepted(rideId, msg.sender);\n    }\n\n    // Complete ride and pay driver\n    function completeRide(uint256 rideId) external {\n        Ride storage ride = rides[rideId];\n\n        require(msg.sender == ride.driver, \"Only driver can complete\");\n        require(ride.status == RideStatus.Accepted, \"Ride not active\");\n\n        ride.status = RideStatus.Completed;\n\n        payable(ride.driver).transfer(ride.fare);\n\n        emit RideCompleted(rideId);\n    }\n\n}"
+      }
+    }
+  }
+}

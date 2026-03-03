@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UberChain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+</head>
+<body class="bg-zinc-950 min-h-screen text-white">
+
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 bg-yellow-400 rounded-lg flex items-center justify-center text-black font-black text-xs">U</div>
+      <span class="font-bold text-lg">UberChain</span>
+    </div>
+    <button onclick="connectWallet()" id="connect-btn"
+      class="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm px-4 py-2 rounded-lg transition-colors">
+      Connect Wallet
+    </button>
+  </header>
+
+  <!-- Account bar -->
+  <div id="account-bar" class="hidden bg-zinc-900 border-b border-zinc-800 px-6 py-2 flex items-center justify-between">
+    <p class="text-xs text-zinc-400">Connected: <span id="account-display" class="text-yellow-400 font-mono"></span></p>
+    <div class="flex items-center gap-4">
+      <span class="text-xs text-zinc-500">Total Rides: <span id="ride-counter" class="text-white font-bold">0</span></span>
+      <span id="driver-badge" class="hidden text-xs bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-0.5 rounded-full">✓ Registered Driver</span>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <section class="px-6 pt-10 pb-6 max-w-3xl">
+    <h1 class="text-4xl font-black tracking-tight mb-2">Rides on the <span class="text-yellow-400">Blockchain.</span></h1>
+    <p class="text-zinc-500 text-sm">No middleman. Smart contracts handle booking and payment.</p>
+  </section>
+
+  <!-- Stats Bar -->
+  <div id="stats-bar" class="hidden px-6 mb-6 max-w-3xl">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 grid grid-cols-3 gap-4">
+      <div>
+        <p class="text-xs text-zinc-500 mb-1">Total Rides</p>
+        <p id="stat-total" class="text-xl font-black text-yellow-400">0</p>
+      </div>
+      <div>
+        <p class="text-xs text-zinc-500 mb-1">Next Ride ID</p>
+        <p id="stat-next" class="text-xl font-black text-white">1</p>
+      </div>
+      <div>
+        <p class="text-xs text-zinc-500 mb-1">Your Status</p>
+        <p id="stat-status" class="text-xl font-black text-zinc-400">Rider</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="px-6 pb-10 max-w-3xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+    <!-- Register Driver -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">Step 1</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Register as Driver</h2>
+      <p class="text-zinc-500 text-xs mb-4">Stores your wallet on-chain as a verified driver.</p>
+      <button onclick="registerDriver()" id="btn-register"
+        class="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 text-black font-bold text-sm py-2.5 rounded-xl transition-colors">
+        Register
+      </button>
+    </div>
+
+    <!-- Request Ride -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">Step 2</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Request a Ride</h2>
+      <p class="text-zinc-500 text-xs mb-3">ETH is locked in contract until ride completes.</p>
+      <input type="text" id="fare" placeholder="Fare in ETH (e.g. 0.01)"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-yellow-400 focus:outline-none text-sm text-white placeholder-zinc-500 px-3 py-2 rounded-lg mb-3"/>
+      <button onclick="requestRide()" id="btn-request"
+        class="w-full bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 text-black font-bold text-sm py-2.5 rounded-xl transition-colors">
+        Request Ride
+      </button>
+    </div>
+
+    <!-- Accept Ride -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">Step 3</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Accept a Ride</h2>
+      <p class="text-zinc-500 text-xs mb-1">Must be a registered driver to accept.</p>
+      <p class="text-zinc-600 text-xs mb-3">ID is auto-filled from the latest ride.</p>
+      <input type="number" id="rideIdAccept" placeholder="Ride ID"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-yellow-400 focus:outline-none text-sm text-white placeholder-zinc-500 px-3 py-2 rounded-lg mb-3"/>
+      <button onclick="acceptRide()" id="btn-accept"
+        class="w-full border border-zinc-700 hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 text-zinc-300 font-bold text-sm py-2.5 rounded-xl transition-colors">
+        Accept Ride
+      </button>
+    </div>
+
+    <!-- Complete Ride -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full">Step 4</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Complete Ride</h2>
+      <p class="text-zinc-500 text-xs mb-1">Driver gets paid instantly on completion.</p>
+      <p class="text-zinc-600 text-xs mb-3">ID is auto-filled from the latest ride.</p>
+      <input type="number" id="rideIdComplete" placeholder="Ride ID"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-yellow-400 focus:outline-none text-sm text-white placeholder-zinc-500 px-3 py-2 rounded-lg mb-3"/>
+      <button onclick="completeRide()" id="btn-complete"
+        class="w-full border border-zinc-700 hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 text-zinc-300 font-bold text-sm py-2.5 rounded-xl transition-colors">
+        Complete & Get Paid
+      </button>
+    </div>
+
+    <!-- Registered Drivers -->
+    <div class="sm:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-bold text-base">Registered Drivers</h2>
+          <p class="text-zinc-500 text-xs mt-0.5">Wallets registered on-chain as drivers</p>
+        </div>
+        <button onclick="refreshData()" id="btn-refresh"
+          class="text-xs border border-zinc-700 hover:border-yellow-400 hover:text-yellow-400 text-zinc-400 px-3 py-1.5 rounded-lg transition-colors">
+          Refresh
+        </button>
+      </div>
+      <div id="drivers-list">
+        <p class="text-zinc-600 text-xs">Connect wallet to see registered drivers.</p>
+      </div>
+    </div>
+
+    <!-- Ride History -->
+    <div class="sm:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-bold text-base">Ride History</h2>
+          <p class="text-zinc-500 text-xs mt-0.5">All rides on-chain</p>
+        </div>
+      </div>
+      <div id="rides-list">
+        <p class="text-zinc-600 text-xs">Connect wallet to see ride history.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 bg-zinc-800 border border-zinc-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl max-w-xs">
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    let provider, signer, contract;
+    const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const abi = [
+      "function registerDriver()",
+      "function requestRide() payable",
+      "function acceptRide(uint256 rideId)",
+      "function completeRide(uint256 rideId)",
+      "function rideCounter() view returns (uint256)",
+      "function registeredDrivers(address) view returns (bool)",
+      "function rides(uint256) view returns (address rider, address driver, uint256 fare, uint8 status)",
+      "event DriverRegistered(address driver)",
+      "event RideRequested(uint256 rideId, address rider, uint256 fare)"
+    ];
+
+    const STATUS = ['Requested', 'Accepted', 'Completed', 'Cancelled'];
+    const STATUS_COLOR = ['text-blue-400', 'text-yellow-400', 'text-green-400', 'text-red-400'];
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    function setLoading(id, loading) {
+      const btn = document.getElementById(id);
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Confirming...' : btn.dataset.label;
+    }
+
+    function initLabels() {
+      ['btn-register', 'btn-request', 'btn-accept', 'btn-complete'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.dataset.label = btn.textContent.trim();
+      });
+    }
+
+    async function refreshData() {
+      if (!contract) return;
+      const addr = await signer.getAddress();
+
+      // Get ride counter
+      const count = await contract.rideCounter();
+      const total = Number(count);
+
+      // Update stats
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-next').textContent = total + 1;
+      document.getElementById('ride-counter').textContent = total;
+
+      // Auto-fill ride ID inputs with the latest ride
+      if (total > 0) {
+        document.getElementById('rideIdAccept').value = total;
+        document.getElementById('rideIdComplete').value = total;
+      }
+
+      // Check if current user is a registered driver
+      const isDriver = await contract.registeredDrivers(addr);
+      document.getElementById('stat-status').textContent = isDriver ? 'Driver' : 'Rider';
+      document.getElementById('stat-status').className = isDriver
+        ? 'text-xl font-black text-green-400'
+        : 'text-xl font-black text-zinc-400';
+      if (isDriver) {
+        document.getElementById('driver-badge').classList.remove('hidden');
+      }
+
+      // Load registered drivers from DriverRegistered events
+      const filter = contract.filters.DriverRegistered();
+      const events = await contract.queryFilter(filter);
+      const drivers = [...new Set(events.map(e => e.args[0]))];
+
+      const driversList = document.getElementById('drivers-list');
+      if (drivers.length === 0) {
+        driversList.innerHTML = '<p class="text-zinc-600 text-xs">No drivers registered yet.</p>';
+      } else {
+        driversList.innerHTML = drivers.map((d, i) => `
+          <div class="flex items-center justify-between py-2 ${i < drivers.length - 1 ? 'border-b border-zinc-800' : ''}">
+            <span class="font-mono text-xs text-zinc-300">${d}</span>
+            ${d.toLowerCase() === addr.toLowerCase()
+              ? '<span class="text-xs bg-yellow-400/10 text-yellow-400 px-2 py-0.5 rounded-full">You</span>'
+              : '<span class="text-xs bg-green-500/10 text-green-400 px-2 py-0.5 rounded-full">Driver</span>'
+            }
+          </div>
+        `).join('');
+      }
+
+      // Load rides
+      const ridesList = document.getElementById('rides-list');
+      if (total === 0) {
+        ridesList.innerHTML = '<p class="text-zinc-600 text-xs">No rides yet.</p>';
+      } else {
+        let html = '';
+        for (let i = 1; i <= total; i++) {
+          const ride = await contract.rides(i);
+          const statusIdx = Number(ride.status);
+          html += `
+            <div class="flex items-center justify-between py-2.5 ${i < total ? 'border-b border-zinc-800' : ''}">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-zinc-500 w-6">#${i}</span>
+                <div>
+                  <p class="text-xs text-zinc-300 font-mono">${ride.rider.slice(0,6)}...${ride.rider.slice(-4)}</p>
+                  <p class="text-xs text-zinc-600">${ethers.formatEther(ride.fare)} ETH</p>
+                </div>
+              </div>
+              <span class="text-xs font-bold ${STATUS_COLOR[statusIdx]}">${STATUS[statusIdx]}</span>
+            </div>
+          `;
+        }
+        ridesList.innerHTML = html;
+      }
+    }
+
+    async function connectWallet() {
+      if (!window.ethereum) { showToast('Install MetaMask first'); return; }
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = await provider.getSigner();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+        const addr = await signer.getAddress();
+
+        document.getElementById('connect-btn').textContent = addr.slice(0,6) + '...' + addr.slice(-4);
+        document.getElementById('connect-btn').classList.replace('bg-yellow-400', 'bg-zinc-800');
+        document.getElementById('connect-btn').classList.replace('text-black', 'text-white');
+        document.getElementById('account-bar').classList.remove('hidden');
+        document.getElementById('account-display').textContent = addr;
+        document.getElementById('stats-bar').classList.remove('hidden');
+
+        await refreshData();
+        showToast('Wallet connected!');
+      } catch { showToast('Connection failed'); }
+    }
+
+    async function registerDriver() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      setLoading('btn-register', true);
+      try {
+        const tx = await contract.registerDriver();
+        await tx.wait();
+        await refreshData();
+        showToast('Registered as driver ✓');
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-register', false);
+    }
+
+    async function requestRide() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const fare = document.getElementById('fare').value;
+      if (!fare || isNaN(fare)) { showToast('Enter a valid fare'); return; }
+      setLoading('btn-request', true);
+      try {
+        const tx = await contract.requestRide({ value: ethers.parseEther(fare) });
+        await tx.wait();
+        await refreshData();
+        showToast(`Ride requested for ${fare} ETH ✓`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-request', false);
+    }
+
+    async function acceptRide() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const id = document.getElementById('rideIdAccept').value;
+      if (!id) { showToast('Enter a ride ID'); return; }
+      setLoading('btn-accept', true);
+      try {
+        const tx = await contract.acceptRide(id);
+        await tx.wait();
+        await refreshData();
+        showToast(`Ride #${id} accepted ✓`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-accept', false);
+    }
+
+    async function completeRide() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const id = document.getElementById('rideIdComplete').value;
+      if (!id) { showToast('Enter a ride ID'); return; }
+      setLoading('btn-complete', true);
+      try {
+        const tx = await contract.completeRide(id);
+        await tx.wait();
+        await refreshData();
+        showToast(`Ride #${id} complete — ETH paid! ✓`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-complete', false);
+    }
+
+    window.addEventListener('load', initLabels);
+  </script>
+</body>
+</html>
