@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Insurance DApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
+</head>
+<body class="bg-zinc-950 min-h-screen text-white">
+
+  <!-- Header -->
+  <header class="border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center text-white font-black text-xs">I</div>
+      <span class="font-bold text-lg">InsureChain</span>
+    </div>
+    <button onclick="connectWallet()" id="connect-btn"
+      class="bg-blue-500 hover:bg-blue-400 text-white font-bold text-sm px-4 py-2 rounded-lg transition-colors">
+      Connect Wallet
+    </button>
+  </header>
+
+  <!-- Account bar -->
+  <div id="account-bar" class="hidden bg-zinc-900 border-b border-zinc-800 px-6 py-2 flex items-center justify-between">
+    <p class="text-xs text-zinc-400">Connected: <span id="account-display" class="text-blue-400 font-mono"></span></p>
+    <span class="text-xs text-zinc-500">Total Policies: <span id="policy-counter" class="text-white font-bold">0</span></span>
+  </div>
+
+  <!-- Hero -->
+  <section class="px-6 pt-10 pb-6 max-w-2xl">
+    <h1 class="text-4xl font-black tracking-tight mb-2">Insurance on the <span class="text-blue-400">Blockchain.</span></h1>
+    <p class="text-zinc-500 text-sm">No insurance company. Smart contracts handle policies and claims automatically.</p>
+  </section>
+
+  <!-- Cards -->
+  <main class="px-6 pb-16 max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+    <!-- Buy Policy -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full">Step 1</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Buy Policy</h2>
+      <p class="text-zinc-500 text-xs mb-3">Pay premium in ETH to get coverage.</p>
+      <input id="coverage" placeholder="Coverage Amount (ETH)"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-blue-400 focus:outline-none text-sm text-white placeholder-zinc-500 px-3 py-2 rounded-lg mb-2"/>
+      <input id="premium" placeholder="Premium (ETH e.g. 0.01)"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-blue-400 focus:outline-none text-sm text-white placeholder-zinc-500 px-3 py-2 rounded-lg mb-3"/>
+      <button onclick="buyPolicy()" id="btn-buy"
+        class="w-full bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-bold text-sm py-2.5 rounded-xl transition-colors">
+        Buy Policy
+      </button>
+    </div>
+
+    <!-- File Claim -->
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded-full">Step 2</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">File a Claim</h2>
+      <p class="text-zinc-500 text-xs mb-3">Select an active policy to file a claim.</p>
+      <select id="claimPolicyId"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-blue-400 focus:outline-none text-sm text-white px-3 py-2 rounded-lg mb-3 cursor-pointer">
+        <option value="">— select a policy —</option>
+      </select>
+      <button onclick="fileClaim()" id="btn-claim"
+        class="w-full border border-zinc-700 hover:border-blue-400 hover:text-blue-400 disabled:opacity-50 text-zinc-300 font-bold text-sm py-2.5 rounded-xl transition-colors">
+        File Claim
+      </button>
+    </div>
+
+    <!-- Owner Actions -->
+    <div class="sm:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">Owner Only</span>
+      </div>
+      <h2 class="font-bold text-base mb-1">Manage Claims</h2>
+      <p class="text-zinc-500 text-xs mb-4">Only the contract owner can approve or reject filed claims.</p>
+      <select id="managePolicyId"
+        class="w-full bg-zinc-800 border border-zinc-700 focus:border-orange-400 focus:outline-none text-sm text-white px-3 py-2 rounded-lg mb-3 cursor-pointer">
+        <option value="">— select a pending claim —</option>
+      </select>
+      <div class="flex gap-3">
+        <button onclick="approveClaim()" id="btn-approve"
+          class="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold text-sm py-2.5 rounded-xl transition-colors">
+          Approve & Pay
+        </button>
+        <button onclick="rejectClaim()" id="btn-reject"
+          class="flex-1 bg-red-600/20 hover:bg-red-600/40 border border-red-500/30 hover:border-red-500 disabled:opacity-50 text-red-400 font-bold text-sm py-2.5 rounded-xl transition-colors">
+          Reject Claim
+        </button>
+      </div>
+    </div>
+
+    <!-- Policy History -->
+    <div class="sm:col-span-2 bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-bold text-base">Policy History</h2>
+          <p class="text-zinc-500 text-xs mt-0.5">All policies on-chain</p>
+        </div>
+        <button onclick="refreshData()"
+          class="text-xs border border-zinc-700 hover:border-blue-400 hover:text-blue-400 text-zinc-400 px-3 py-1.5 rounded-lg transition-colors">
+          Refresh
+        </button>
+      </div>
+      <div id="policies-list">
+        <p class="text-zinc-600 text-xs">Connect wallet to see policies.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 right-6 bg-zinc-800 border border-zinc-700 text-white text-sm px-4 py-3 rounded-xl shadow-xl max-w-xs">
+    <span id="toast-msg"></span>
+  </div>
+
+  <script>
+    let provider, signer, contract;
+
+    // ✅ Matches the actual Insurance.sol struct:
+    // holder, premium, coverageAmount, active, claimFiled
+    const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const abi = [
+      "function buyPolicy(uint256 coverageAmount) payable",
+      "function fileClaim(uint256 policyId)",
+      "function approveClaim(uint256 policyId)",
+      "function rejectClaim(uint256 policyId)",
+      "function policyCounter() view returns (uint256)",
+      "function policies(uint256) view returns (address holder, uint256 premium, uint256 coverageAmount, bool active, bool claimFiled)"
+    ];
+
+    // Status based on actual contract fields (no claimApproved field in struct)
+    const STATUS_LABEL = (p) => {
+      if (!p.active && p.claimFiled)  return ['Approved & Paid', 'text-green-400'];
+      if (p.claimFiled)               return ['Claim Pending',   'text-yellow-400'];
+      if (p.active)                   return ['Active',           'text-blue-400'];
+      return                          ['Inactive',                'text-zinc-500'];
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-msg').textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 3000);
+    }
+
+    function setLoading(id, loading) {
+      const btn = document.getElementById(id);
+      btn.disabled = loading;
+      btn.textContent = loading ? 'Confirming...' : btn.dataset.label;
+    }
+
+    function initLabels() {
+      ['btn-buy', 'btn-claim', 'btn-approve', 'btn-reject'].forEach(id => {
+        const btn = document.getElementById(id);
+        btn.dataset.label = btn.textContent.trim();
+      });
+    }
+
+    async function rebuildDropdowns(policies) {
+      // File Claim: active policies with no claim filed yet
+      const claimSelect = document.getElementById('claimPolicyId');
+      claimSelect.innerHTML = '<option value="">— select a policy —</option>';
+      policies
+        .filter(p => p.active && !p.claimFiled)
+        .forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `Policy #${p.id} · ${ethers.formatEther(p.coverageAmount)} ETH coverage`;
+          claimSelect.appendChild(opt);
+        });
+
+      // Manage Claims: policies with a pending claim
+      const manageSelect = document.getElementById('managePolicyId');
+      manageSelect.innerHTML = '<option value="">— select a pending claim —</option>';
+      policies
+        .filter(p => p.claimFiled && p.active)
+        .forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = `Policy #${p.id} · ${ethers.formatEther(p.coverageAmount)} ETH payout`;
+          manageSelect.appendChild(opt);
+        });
+    }
+
+    async function refreshData() {
+      if (!contract) return;
+      try {
+        const count = await contract.policyCounter();
+        const total = Number(count);
+        document.getElementById('policy-counter').textContent = total;
+
+        const allPolicies = [];
+        for (let i = 1; i <= total; i++) {
+          const p = await contract.policies(i);
+          allPolicies.push({ id: i, holder: p[0], premium: p[1], coverageAmount: p[2], active: p[3], claimFiled: p[4] });
+        }
+
+        await rebuildDropdowns(allPolicies);
+
+        const list = document.getElementById('policies-list');
+        if (total === 0) {
+          list.innerHTML = '<p class="text-zinc-600 text-xs">No policies yet.</p>';
+          return;
+        }
+
+        list.innerHTML = allPolicies.map((p, idx) => {
+          const [label, color] = STATUS_LABEL(p);
+          return `
+            <div class="flex items-center justify-between py-2.5 ${idx < allPolicies.length - 1 ? 'border-b border-zinc-800' : ''}">
+              <div class="flex items-center gap-3">
+                <span class="text-xs font-bold text-zinc-500 w-6">#${p.id}</span>
+                <div>
+                  <p class="text-xs text-zinc-300 font-mono">${p.holder.slice(0,6)}...${p.holder.slice(-4)}</p>
+                  <p class="text-xs text-zinc-600">Coverage: ${ethers.formatEther(p.coverageAmount)} ETH · Premium: ${ethers.formatEther(p.premium)} ETH</p>
+                </div>
+              </div>
+              <span class="text-xs font-bold ${color}">${label}</span>
+            </div>
+          `;
+        }).join('');
+
+      } catch (e) {
+        console.error('Refresh error:', e);
+        showToast('Failed to load data');
+      }
+    }
+
+    async function connectWallet() {
+      if (!window.ethereum) { showToast('Install MetaMask first'); return; }
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = await provider.getSigner();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+        const addr = await signer.getAddress();
+
+        document.getElementById('connect-btn').textContent = addr.slice(0,6) + '...' + addr.slice(-4);
+        document.getElementById('connect-btn').classList.replace('bg-blue-500', 'bg-zinc-800');
+        document.getElementById('account-bar').classList.remove('hidden');
+        document.getElementById('account-display').textContent = addr;
+
+        await refreshData();
+        showToast('Wallet connected!');
+      } catch (e) { showToast('Connection failed'); }
+    }
+
+    async function buyPolicy() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const coverage = document.getElementById('coverage').value;
+      const premium  = document.getElementById('premium').value;
+      if (!coverage || !premium || isNaN(premium)) { showToast('Fill in both fields'); return; }
+      setLoading('btn-buy', true);
+      try {
+        const tx = await contract.buyPolicy(
+          ethers.parseEther(coverage),
+          { value: ethers.parseEther(premium) }
+        );
+        await tx.wait();
+        await refreshData();
+        showToast('Policy purchased ✓');
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-buy', false);
+    }
+
+    async function fileClaim() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const id = document.getElementById('claimPolicyId').value;
+      if (!id) { showToast('Select a policy first'); return; }
+      setLoading('btn-claim', true);
+      try {
+        const tx = await contract.fileClaim(id);
+        await tx.wait();
+        await refreshData();
+        showToast(`Claim filed for policy #${id} ✓`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-claim', false);
+    }
+
+    async function approveClaim() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const id = document.getElementById('managePolicyId').value;
+      if (!id) { showToast('Select a pending claim first'); return; }
+      setLoading('btn-approve', true);
+      try {
+        const tx = await contract.approveClaim(id);
+        await tx.wait();
+        await refreshData();
+        showToast(`Claim #${id} approved — payout sent ✓`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-approve', false);
+    }
+
+    async function rejectClaim() {
+      if (!contract) { showToast('Connect wallet first'); return; }
+      const id = document.getElementById('managePolicyId').value;
+      if (!id) { showToast('Select a pending claim first'); return; }
+      setLoading('btn-reject', true);
+      try {
+        const tx = await contract.rejectClaim(id);
+        await tx.wait();
+        await refreshData();
+        showToast(`Claim #${id} rejected`);
+      } catch (e) { showToast(e.reason || 'Transaction failed'); }
+      setLoading('btn-reject', false);
+    }
+
+    window.addEventListener('load', initLabels);
+  </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-a3c29eed28a6ef63aec4e7703ccc3dcb94662c1b",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/Insurance.sol": "project/contracts/Insurance.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/Insurance.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ncontract Insurance {\n\n    address public owner;\n    uint256 public policyCounter;\n\n    constructor() {\n        owner = msg.sender;\n    }\n\n    struct Policy {\n        address holder;\n        uint256 premium;\n        uint256 coverageAmount;\n        bool active;\n        bool claimFiled;\n    }\n\n    mapping(uint256 => Policy) public policies;\n\n    event PolicyPurchased(uint256 policyId, address holder);\n    event ClaimFiled(uint256 policyId);\n    event ClaimApproved(uint256 policyId);\n    event ClaimRejected(uint256 policyId);\n\n    modifier onlyOwner() {\n        require(msg.sender == owner, \"Not authorized\");\n        _;\n    }\n\n    function buyPolicy(uint256 coverageAmount) external payable {\n        require(msg.value > 0, \"Premium required\");\n\n        policyCounter++;\n\n        policies[policyCounter] = Policy({\n            holder: msg.sender,\n            premium: msg.value,\n            coverageAmount: coverageAmount,\n            active: true,\n            claimFiled: false\n        });\n\n        emit PolicyPurchased(policyCounter, msg.sender);\n    }\n\n    function fileClaim(uint256 policyId) external {\n        Policy storage policy = policies[policyId];\n\n        require(msg.sender == policy.holder, \"Not policy holder\");\n        require(policy.active, \"Policy inactive\");\n        require(!policy.claimFiled, \"Claim already filed\");\n\n        policy.claimFiled = true;\n\n        emit ClaimFiled(policyId);\n    }\n\n    function approveClaim(uint256 policyId) external onlyOwner {\n        Policy storage policy = policies[policyId];\n\n        require(policy.claimFiled, \"No claim filed\");\n\n        policy.active = false;\n\n        payable(policy.holder).transfer(policy.coverageAmount);\n\n        emit ClaimApproved(policyId);\n    }\n\n    function rejectClaim(uint256 policyId) external onlyOwner {\n        Policy storage policy = policies[policyId];\n\n        require(policy.claimFiled, \"No claim filed\");\n\n        policy.claimFiled = false;\n\n        emit ClaimRejected(policyId);\n    }\n}"
+      }
+    }
+  }
+}
