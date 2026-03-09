@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-1662a381caca1b8a492d02a3afff32b43d8f3558",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/MyToken.sol": "project/contracts/MyToken.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/MyToken.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ncontract MyToken{\n    string public name = \"MyToken\";\n    string public symbol = \"MTK\";\n    uint8 public decimals = 18;\n\n    uint256 public totalSupply;\n    mapping(address => uint256) public balanceOf;\n    mapping(address => mapping(address => uint256)) public allowance;\n\n    event Transfer(address indexed from, address indexed to, uint256 value);\n    event Approval(address indexed owner, address indexed spender, uint256 value);\n\n    constructor(uint256 initialSupply) {\n        totalSupply = initialSupply;\n        balanceOf[msg.sender] = initialSupply;\n\n        emit Transfer(address(0), msg.sender, initialSupply);\n    }\n\n    function transfer(address to, uint256 amount) external returns (bool) {\n\n        require(balanceOf[msg.sender] >= amount, \"Not enough tokens\");\n\n        balanceOf[msg.sender] -= amount;\n        balanceOf[to] += amount;\n\n        emit Transfer(msg.sender, to, amount);\n\n        return true;\n    }\n\n    function approve(address spender, uint256 amount) external returns (bool) {\n\n        allowance[msg.sender][spender] = amount;\n\n        emit Approval(msg.sender, spender, amount);\n\n        return true;\n    }\n\n    function transferFrom(address from, address to, uint256 amount) external returns (bool) {\n\n        require(balanceOf[from] >= amount, \"Balance too low\");\n        require(allowance[from][msg.sender] >= amount, \"Allowance exceeded\");\n\n        balanceOf[from] -= amount;\n        balanceOf[to] += amount;\n\n        allowance[from][msg.sender] -= amount;\n\n        emit Transfer(from, to, amount);\n\n        return true;\n    }\n\n}"
+      }
+    }
+  }
+}

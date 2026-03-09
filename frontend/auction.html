@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GAVEL — On-Chain Auction</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a08;
+    --surface: #111110;
+    --border: #2a2a26;
+    --accent: #e8ff47;
+    --accent2: #ff6b35;
+    --text: #f0ede6;
+    --muted: #6b6b60;
+    --success: #47ffb2;
+    --danger: #ff4757;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* BACKGROUND GRID */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 60px 60px;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 24px 80px; }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 32px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 40px #e8ff4744;
+    line-height: 1;
+  }
+
+  .logo span {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--text);
+    font-size: 18px;
+    display: block;
+    letter-spacing: 2px;
+    margin-top: -4px;
+  }
+
+  .connect-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 12px 24px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .connect-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent);
+    transform: translateX(-100%);
+    transition: transform 0.2s;
+    z-index: -1;
+  }
+
+  .connect-btn:hover::before { transform: translateX(0); }
+  .connect-btn:hover { color: var(--bg); }
+
+  .connect-btn.connected {
+    border-color: var(--success);
+    color: var(--success);
+  }
+  .connect-btn.connected::before { background: var(--success); }
+  .connect-btn.connected:hover { color: var(--bg); }
+
+  /* AUCTION CARD */
+  .auction-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    animation: slideUp 0.6s ease both;
+  }
+
+  .auction-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  /* AUCTION HEADER */
+  .auction-header {
+    padding: 32px 36px 28px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: start;
+  }
+
+  .item-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .item-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 2px;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .contract-addr {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .contract-addr a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .contract-addr a:hover { text-decoration: underline; }
+
+  .status-badge {
+    padding: 6px 14px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+
+  .status-badge.live {
+    border-color: var(--success);
+    color: var(--success);
+    background: #47ffb211;
+    animation: pulseBorder 2s ease infinite;
+  }
+
+  .status-badge.ended {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: #ff475711;
+  }
+
+  /* STATS GRID */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-cell {
+    padding: 28px 36px;
+    border-right: 1px solid var(--border);
+  }
+
+  .stat-cell:last-child { border-right: none; }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .stat-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 1px;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* TIMER */
+  .timer-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 2px;
+    color: var(--text);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timer-value.urgent { color: var(--danger); animation: pulse 0.8s ease infinite; }
+
+  /* BID SECTION */
+  .bid-section {
+    padding: 32px 36px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .bid-row {
+    display: flex;
+    gap: 0;
+    margin-top: 16px;
+  }
+
+  .bid-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-right: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 16px;
+    padding: 16px 20px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .bid-input:focus { border-color: var(--accent); }
+  .bid-input::placeholder { color: var(--muted); }
+
+  .bid-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .eth-tag {
+    background: var(--border);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    padding: 16px 16px;
+    display: flex;
+    align-items: center;
+    letter-spacing: 1px;
+  }
+
+  .bid-submit {
+    background: var(--accent);
+    border: none;
+    color: var(--bg);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 3px;
+    padding: 16px 36px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .bid-submit:hover { background: #fff; transform: translateY(-1px); }
+  .bid-submit:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+
+  .min-bid-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+
+  .min-bid-hint span { color: var(--accent); }
+
+  /* ACTION BUTTONS */
+  .actions-row {
+    padding: 24px 36px;
+    display: flex;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .action-btn:hover { border-color: var(--text); background: var(--border); }
+
+  .action-btn.danger { border-color: var(--danger); color: var(--danger); }
+  .action-btn.danger:hover { background: #ff475722; }
+
+  .action-btn.success-btn { border-color: var(--success); color: var(--success); }
+  .action-btn.success-btn:hover { background: #47ffb222; }
+
+  .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* TX LOG */
+  .tx-log {
+    padding: 28px 36px;
+  }
+
+  .tx-log-title {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .tx-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #1a1a18;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .tx-item:last-child { border-bottom: none; }
+
+  .tx-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .tx-dot.bid { background: var(--accent); }
+  .tx-dot.withdraw { background: var(--success); }
+  .tx-dot.end { background: var(--danger); }
+  .tx-dot.info { background: var(--muted); }
+
+  .tx-msg { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .tx-time { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .tx-hash { font-size: 10px; color: var(--accent); }
+  .tx-hash a { color: inherit; text-decoration: none; }
+  .tx-hash a:hover { text-decoration: underline; }
+
+  /* TOAST */
+  .toast-wrap {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+  }
+
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 14px 20px;
+    font-size: 12px;
+    max-width: 340px;
+    animation: slideInRight 0.3s ease;
+    position: relative;
+  }
+
+  .toast.error { border-left-color: var(--danger); }
+  .toast.success { border-left-color: var(--success); }
+
+  .toast-title { font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; }
+  .toast-body { color: var(--text); line-height: 1.4; word-break: break-all; }
+
+  /* NETWORK BANNER */
+  .network-banner {
+    background: #ff475711;
+    border: 1px solid var(--danger);
+    border-radius: 0;
+    padding: 12px 20px;
+    font-size: 12px;
+    color: var(--danger);
+    margin-bottom: 24px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .network-banner.show { display: flex; }
+
+  /* LOADING OVERLAY */
+  .loading-bar {
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background-size: 200%;
+    animation: shimmer 1.2s linear infinite;
+    display: none;
+    margin-bottom: -2px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .loading-bar.show { display: block; }
+
+  /* WINNER BANNER */
+  .winner-banner {
+    background: linear-gradient(135deg, #e8ff4711, #ff6b3511);
+    border: 1px solid var(--accent);
+    padding: 20px 36px;
+    display: none;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .winner-banner.show { display: flex; }
+  .winner-icon { font-size: 28px; }
+  .winner-text { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; }
+  .winner-addr { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* PENDING RETURNS */
+  .pending-returns {
+    background: #47ffb211;
+    border: 1px solid #47ffb244;
+    padding: 14px 20px;
+    margin: 0 36px 0;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pending-returns.show { display: flex; }
+  .pending-label { font-size: 11px; color: var(--success); letter-spacing: 1px; }
+  .pending-amount { font-family: 'Bebas Neue', sans-serif; font-size: 22px; color: var(--success); }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes shimmer {
+    from { background-position: 200% center; }
+    to { background-position: -200% center; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  @keyframes pulseBorder {
+    0%, 100% { box-shadow: 0 0 0 0 #47ffb233; }
+    50% { box-shadow: 0 0 0 4px #47ffb211; }
+  }
+
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .stat-cell:nth-child(2) { border-right: none; }
+    .stat-cell:nth-child(3) { border-top: 1px solid var(--border); grid-column: 1 / -1; }
+    .auction-header { grid-template-columns: 1fr; }
+    .item-name { font-size: 32px; }
+    .bid-row { flex-wrap: wrap; }
+    .bid-input { border-right: 1px solid var(--border); }
+    .bid-submit { width: 100%; }
+    .stat-value, .timer-value { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      GAVEL
+      <span>on-chain auction protocol</span>
+    </div>
+    <button class="connect-btn" id="connectBtn" onclick="connectWallet()">
+      Connect Wallet
+    </button>
+  </header>
+
+  <!-- NETWORK WARNING -->
+  <div class="network-banner" id="networkBanner">
+    ⚠ &nbsp; Please switch MetaMask to <strong>&nbsp;Sepolia Testnet&nbsp;</strong> to interact with this contract.
+  </div>
+
+  <!-- LOADING BAR -->
+  <div class="loading-bar" id="loadingBar"></div>
+
+  <!-- MAIN CARD -->
+  <div class="auction-card" id="auctionCard">
+
+    <!-- HEADER -->
+    <div class="auction-header">
+      <div>
+        <div class="item-label">Live Auction · Sepolia Testnet</div>
+        <div class="item-name">SECURE AUCTION</div>
+        <div class="contract-addr">
+          CONTRACT:&nbsp;
+          <a href="https://sepolia.etherscan.io/address/0x691Fa673EB77E1f3540ad69EbB1cC7649d64CBa8" target="_blank">
+            0x691F…CBa8
+          </a>
+        </div>
+      </div>
+      <div class="status-badge live" id="statusBadge">● LIVE</div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-cell">
+        <div class="stat-label">Highest Bid</div>
+        <div class="stat-value" id="highestBid">—</div>
+        <div class="stat-sub" id="highestBidder">No bids yet</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Min Increment</div>
+        <div class="stat-value" id="minIncrement">—</div>
+        <div class="stat-sub">per bid</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-label">Time Remaining</div>
+        <div class="timer-value" id="timer">--:--:--</div>
+        <div class="stat-sub" id="endTimeLabel">Loading...</div>
+      </div>
+    </div>
+
+    <!-- PENDING RETURNS -->
+    <div class="pending-returns" id="pendingReturns">
+      <div>
+        <div class="pending-label">↩ Your Pending Refund</div>
+        <div class="pending-amount" id="pendingAmount">0 ETH</div>
+      </div>
+      <button class="action-btn success-btn" onclick="withdraw()">Withdraw</button>
+    </div>
+
+    <!-- WINNER BANNER -->
+    <div class="winner-banner" id="winnerBanner">
+      <div class="winner-icon">🏆</div>
+      <div>
+        <div class="winner-text">Auction Ended</div>
+        <div class="winner-addr" id="winnerAddr">—</div>
+      </div>
+    </div>
+
+    <!-- BID SECTION -->
+    <div class="bid-section" id="bidSection">
+      <div class="bid-label">Place Your Bid</div>
+      <div class="bid-row">
+        <input
+          class="bid-input"
+          type="number"
+          id="bidInput"
+          placeholder="0.00"
+          step="0.001"
+          min="0"
+        />
+        <div class="eth-tag">ETH</div>
+        <button class="bid-submit" id="bidBtn" onclick="placeBid()">BID NOW</button>
+      </div>
+      <div class="min-bid-hint">
+        Minimum next bid: <span id="minNextBid">—</span>
+      </div>
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="actions-row">
+      <button class="action-btn" onclick="loadAuction()">↻ Refresh</button>
+      <button class="action-btn danger" id="endBtn" onclick="endAuction()" disabled>End Auction</button>
+    </div>
+
+    <!-- TX LOG -->
+    <div class="tx-log">
+      <div class="tx-log-title">Activity Log</div>
+      <div id="txLog">
+        <div class="tx-item">
+          <div class="tx-dot info"></div>
+          <div>
+            <div class="tx-msg">Connect your wallet to interact</div>
+            <div class="tx-time">waiting...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end auction-card -->
+
+</div><!-- end wrap -->
+
+<!-- TOASTS -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ─── CONFIG ──────────────────────────────────────────────────────────────
+const CONTRACT_ADDRESS = "0x691Fa673EB77E1f3540ad69EbB1cC7649d64CBa8";
+const SEPOLIA_CHAIN_ID = "0xaa36a7"; // 11155111
+
+const ABI = [
+  "function bid() external payable",
+  "function withdraw() external",
+  "function endAuction() external",
+  "function highestBid() view returns (uint256)",
+  "function highestBidder() view returns (address)",
+  "function auctionEnd() view returns (uint256)",
+  "function minIncrement() view returns (uint256)",
+  "function ended() view returns (bool)",
+  "function owner() view returns (address)",
+  "function pendingReturns(address) view returns (uint256)",
+  "event BidPlaced(address bidder, uint256 amount)",
+  "event Withdrawal(address bidder, uint256 amount)",
+  "event AuctionEnded(address winner, uint256 amount)"
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+let provider, signer, contract, userAddress;
+let timerInterval = null;
+let auctionEndTime = null;
+let isEnded = false;
+let pollInterval = null;
+
+// ─── WALLET ───────────────────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) {
+    showToast("No Wallet", "Please install MetaMask to continue.", "error");
+    return;
+  }
+  try {
+    setLoading(true);
+    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    userAddress = accounts[0];
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+    await checkNetwork();
+    await loadAuction();
+    setupEventListeners();
+    startPolling();
+
+    const btn = document.getElementById("connectBtn");
+    btn.textContent = shortAddr(userAddress);
+    btn.classList.add("connected");
+
+    addLog("info", `Wallet connected: ${shortAddr(userAddress)}`);
+    showToast("Connected", `Wallet ${shortAddr(userAddress)} connected.`, "success");
+
+    window.ethereum.on("accountsChanged", (a) => { userAddress = a[0]; location.reload(); });
+    window.ethereum.on("chainChanged", () => location.reload());
+  } catch (e) {
+    showToast("Error", e.message, "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function checkNetwork() {
+  const chainId = await window.ethereum.request({ method: "eth_chainId" });
+  const banner = document.getElementById("networkBanner");
+  if (chainId !== SEPOLIA_CHAIN_ID) {
+    banner.classList.add("show");
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: SEPOLIA_CHAIN_ID }]
+      });
+      banner.classList.remove("show");
+    } catch (e) {
+      showToast("Wrong Network", "Switch to Sepolia in MetaMask.", "error");
+    }
+  } else {
+    banner.classList.remove("show");
+  }
+}
+
+// ─── LOAD AUCTION DATA ────────────────────────────────────────────────────
+async function loadAuction() {
+  if (!contract) {
+    // read-only if not connected
+    try {
+      const roProv = new ethers.JsonRpcProvider("https://rpc.ankr.com/eth_sepolia");
+      const roContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, roProv);
+      await fetchAndRender(roContract);
+    } catch(e) {}
+    return;
+  }
+  try {
+    await fetchAndRender(contract);
+    if (userAddress) await checkPendingReturns();
+  } catch(e) {
+    showToast("Fetch Error", e.message, "error");
+  }
+}
+
+async function fetchAndRender(c) {
+  const [hBid, hBidder, endTime, minInc, ended, owner] = await Promise.all([
+    c.highestBid(),
+    c.highestBidder(),
+    c.auctionEnd(),
+    c.minIncrement(),
+    c.ended(),
+    c.owner()
+  ]);
+
+  isEnded = ended;
+  auctionEndTime = Number(endTime) * 1000;
+
+  const hBidEth = ethers.formatEther(hBid);
+  const minIncEth = ethers.formatEther(minInc);
+  const minNextBid = (parseFloat(hBidEth) + parseFloat(minIncEth)).toFixed(4);
+
+  document.getElementById("highestBid").textContent = parseFloat(hBidEth).toFixed(4) + " ETH";
+  document.getElementById("highestBidder").textContent =
+    hBidder === "0x0000000000000000000000000000000000000000" ? "No bids yet" : shortAddr(hBidder);
+  document.getElementById("minIncrement").textContent = minIncEth + " ETH";
+  document.getElementById("minNextBid").textContent = minNextBid + " ETH";
+  document.getElementById("bidInput").placeholder = minNextBid;
+
+  // End button (owner only, after endTime)
+  const endBtn = document.getElementById("endBtn");
+  if (userAddress && userAddress.toLowerCase() === owner.toLowerCase() && Date.now() >= auctionEndTime && !ended) {
+    endBtn.disabled = false;
+  }
+
+  if (ended || Date.now() >= auctionEndTime) {
+    renderEnded(hBidder, hBidEth);
+  } else {
+    startCountdown();
+  }
+}
+
+function renderEnded(winner, amount) {
+  isEnded = true;
+  document.getElementById("statusBadge").textContent = "● ENDED";
+  document.getElementById("statusBadge").className = "status-badge ended";
+  document.getElementById("bidSection").style.display = "none";
+  document.getElementById("timer").textContent = "00:00:00";
+  document.getElementById("endTimeLabel").textContent = "Auction closed";
+
+  const wb = document.getElementById("winnerBanner");
+  wb.classList.add("show");
+  document.getElementById("winnerAddr").textContent =
+    winner === "0x0000000000000000000000000000000000000000"
+      ? "No winner — no bids placed"
+      : `Winner: ${shortAddr(winner)} · ${parseFloat(amount).toFixed(4)} ETH`;
+
+  if (timerInterval) clearInterval(timerInterval);
+}
+
+// ─── COUNTDOWN ────────────────────────────────────────────────────────────
+function startCountdown() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimer, 1000);
+  updateTimer();
+}
+
+function updateTimer() {
+  if (!auctionEndTime) return;
+  const remaining = Math.max(0, auctionEndTime - Date.now());
+  const h = Math.floor(remaining / 3600000);
+  const m = Math.floor((remaining % 3600000) / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  const display = `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const el = document.getElementById("timer");
+  el.textContent = display;
+  el.className = remaining < 60000 ? "timer-value urgent" : "timer-value";
+
+  const endDate = new Date(auctionEndTime);
+  document.getElementById("endTimeLabel").textContent = `Ends ${endDate.toLocaleTimeString()}`;
+
+  if (remaining === 0) {
+    clearInterval(timerInterval);
+    renderEnded(document.getElementById("highestBidder").textContent, "");
+  }
+}
+
+// ─── PLACE BID ────────────────────────────────────────────────────────────
+async function placeBid() {
+  if (!signer) { showToast("Not Connected", "Connect wallet first.", "error"); return; }
+  const val = document.getElementById("bidInput").value;
+  if (!val || parseFloat(val) <= 0) { showToast("Invalid", "Enter a valid ETH amount.", "error"); return; }
+
+  try {
+    setLoading(true);
+    document.getElementById("bidBtn").disabled = true;
+    document.getElementById("bidBtn").textContent = "PENDING...";
+
+    const tx = await contract.bid({ value: ethers.parseEther(val) });
+    addLog("bid", `Bid of ${val} ETH submitted`, tx.hash);
+    showToast("Tx Submitted", `Bid ${val} ETH — waiting for confirmation...`);
+
+    await tx.wait();
+    addLog("bid", `✓ Bid confirmed: ${val} ETH`, tx.hash);
+    showToast("Confirmed!", `Your bid of ${val} ETH is live.`, "success");
+    document.getElementById("bidInput").value = "";
+    await loadAuction();
+  } catch(e) {
+    const msg = e?.reason || e?.message || "Transaction failed";
+    showToast("Bid Failed", msg, "error");
+    addLog("info", `Bid failed: ${msg}`);
+  } finally {
+    setLoading(false);
+    document.getElementById("bidBtn").disabled = false;
+    document.getElementById("bidBtn").textContent = "BID NOW";
+  }
+}
+
+// ─── WITHDRAW ─────────────────────────────────────────────────────────────
+async function withdraw() {
+  if (!signer) { showToast("Not Connected", "Connect wallet first.", "error"); return; }
+  try {
+    setLoading(true);
+    const tx = await contract.withdraw();
+    addLog("withdraw", `Withdrawal submitted`, tx.hash);
+    showToast("Tx Submitted", "Withdrawal pending...");
+    await tx.wait();
+    addLog("withdraw", `✓ Withdrawal confirmed`, tx.hash);
+    showToast("Withdrawn!", "Funds sent to your wallet.", "success");
+    await checkPendingReturns();
+  } catch(e) {
+    showToast("Error", e?.reason || e.message, "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─── END AUCTION ──────────────────────────────────────────────────────────
+async function endAuction() {
+  if (!signer) { showToast("Not Connected", "Connect wallet first.", "error"); return; }
+  try {
+    setLoading(true);
+    const tx = await contract.endAuction();
+    addLog("end", `End auction submitted`, tx.hash);
+    showToast("Tx Submitted", "Ending auction...");
+    await tx.wait();
+    addLog("end", `✓ Auction ended`, tx.hash);
+    showToast("Done!", "Auction has been finalized.", "success");
+    await loadAuction();
+  } catch(e) {
+    showToast("Error", e?.reason || e.message, "error");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ─── PENDING RETURNS ──────────────────────────────────────────────────────
+async function checkPendingReturns() {
+  if (!contract || !userAddress) return;
+  try {
+    const pending = await contract.pendingReturns(userAddress);
+    const pendingEth = ethers.formatEther(pending);
+    const el = document.getElementById("pendingReturns");
+    if (parseFloat(pendingEth) > 0) {
+      document.getElementById("pendingAmount").textContent = parseFloat(pendingEth).toFixed(4) + " ETH";
+      el.classList.add("show");
+    } else {
+      el.classList.remove("show");
+    }
+  } catch(e) {}
+}
+
+// ─── EVENT LISTENERS ──────────────────────────────────────────────────────
+function setupEventListeners() {
+  try {
+    contract.on("BidPlaced", (bidder, amount) => {
+      const eth = parseFloat(ethers.formatEther(amount)).toFixed(4);
+      addLog("bid", `New bid: ${eth} ETH from ${shortAddr(bidder)}`);
+      loadAuction();
+    });
+    contract.on("AuctionEnded", (winner, amount) => {
+      const eth = parseFloat(ethers.formatEther(amount)).toFixed(4);
+      addLog("end", `Auction ended! Winner: ${shortAddr(winner)} · ${eth} ETH`);
+      loadAuction();
+    });
+    contract.on("Withdrawal", (bidder, amount) => {
+      const eth = parseFloat(ethers.formatEther(amount)).toFixed(4);
+      addLog("withdraw", `${shortAddr(bidder)} withdrew ${eth} ETH`);
+    });
+  } catch(e) {}
+}
+
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(() => {
+    loadAuction();
+    if (userAddress) checkPendingReturns();
+  }, 15000);
+}
+
+// ─── UI HELPERS ───────────────────────────────────────────────────────────
+function setLoading(on) {
+  document.getElementById("loadingBar").classList.toggle("show", on);
+}
+
+function addLog(type, msg, hash) {
+  const log = document.getElementById("txLog");
+  // remove placeholder
+  if (log.querySelector(".tx-dot.info") && log.children.length === 1) log.innerHTML = "";
+
+  const item = document.createElement("div");
+  item.className = "tx-item";
+  const now = new Date().toLocaleTimeString();
+  item.innerHTML = `
+    <div class="tx-dot ${type}"></div>
+    <div>
+      <div class="tx-msg">${msg}</div>
+      ${hash ? `<div class="tx-hash"><a href="https://sepolia.etherscan.io/tx/${hash}" target="_blank">↗ ${hash.slice(0,20)}…</a></div>` : ""}
+      <div class="tx-time">${now}</div>
+    </div>`;
+  log.prepend(item);
+
+  // cap at 20 items
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+function showToast(title, body, type = "") {
+  const wrap = document.getElementById("toastWrap");
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  t.innerHTML = `<div class="toast-title">${title}</div><div class="toast-body">${body}</div>`;
+  wrap.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
+function shortAddr(a) {
+  if (!a || a.length < 10) return a;
+  return a.slice(0, 6) + "…" + a.slice(-4);
+}
+
+function pad(n) { return String(n).padStart(2, "0"); }
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+window.addEventListener("load", () => {
+  // Load read-only data on page load
+  loadAuction();
+});
+</script>
+</body>
+</html>

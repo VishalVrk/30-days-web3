@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyToken Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"JetBrains Mono"', 'monospace'],
+            sans: ['"DM Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body class="bg-violet-50 font-sans min-h-screen text-violet-950">
+
+  <!-- Topbar -->
+  <header class="bg-white border-b border-violet-100 px-8 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-5 h-5 rounded-full bg-violet-600"></div>
+      <span id="tokenLabel" class="font-semibold text-sm tracking-tight text-violet-900">MyToken</span>
+      <span id="tokenSymbol" class="text-xs font-mono text-violet-400 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-100">MTK</span>
+    </div>
+    <button onclick="connectWallet()" id="connectBtn"
+      class="text-xs font-medium px-4 py-2 rounded-full border border-violet-200 text-violet-700 hover:bg-violet-600 hover:text-white hover:border-violet-600 transition-all duration-200">
+      Connect Wallet
+    </button>
+  </header>
+
+  <!-- Wallet strip -->
+  <div id="walletStrip" class="hidden bg-white border-b border-violet-100 px-8 py-2.5 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+      <p id="wallet" class="font-mono text-xs text-violet-400 truncate max-w-xs"></p>
+    </div>
+    <p class="text-xs text-violet-300 whitespace-nowrap ml-4">
+      Total Supply: <span id="totalSupply" class="text-violet-500 font-mono">—</span>
+    </p>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="bg-white border-b border-violet-100 px-8">
+    <nav class="flex gap-0 max-w-2xl">
+      <button onclick="switchTab('overview')" id="tab-overview"
+        class="tab-btn active-tab text-xs font-medium px-5 py-3.5 border-b-2 border-violet-600 text-violet-700 transition-all duration-150">
+        Overview
+      </button>
+      <button onclick="switchTab('transfer')" id="tab-transfer"
+        class="tab-btn text-xs font-medium px-5 py-3.5 border-b-2 border-transparent text-violet-400 hover:text-violet-600 transition-all duration-150">
+        Transfer
+      </button>
+      <button onclick="switchTab('approve')" id="tab-approve"
+        class="tab-btn text-xs font-medium px-5 py-3.5 border-b-2 border-transparent text-violet-400 hover:text-violet-600 transition-all duration-150">
+        Approve
+      </button>
+      <button onclick="switchTab('transferfrom')" id="tab-transferfrom"
+        class="tab-btn text-xs font-medium px-5 py-3.5 border-b-2 border-transparent text-violet-400 hover:text-violet-600 transition-all duration-150">
+        Transfer From
+      </button>
+      <button onclick="switchTab('allowance')" id="tab-allowance"
+        class="tab-btn text-xs font-medium px-5 py-3.5 border-b-2 border-transparent text-violet-400 hover:text-violet-600 transition-all duration-150">
+        Allowance
+      </button>
+    </nav>
+  </div>
+
+  <!-- Tab Panels -->
+  <main class="max-w-lg mx-auto px-6 py-10">
+
+    <!-- OVERVIEW TAB -->
+    <div id="panel-overview" class="tab-panel space-y-4">
+      <!-- Balance card -->
+      <div class="rounded-2xl border border-violet-100 bg-white p-7 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-violet-400">Your Balance</h2>
+          <button onclick="getBalance()" class="text-xs text-violet-400 hover:text-violet-700 transition-colors">Refresh ↻</button>
+        </div>
+        <p id="balance" class="font-mono text-5xl font-semibold text-violet-700 tracking-tight">—</p>
+        <p id="balanceSymbol" class="text-xs text-violet-300 mt-2 font-mono">MTK</p>
+      </div>
+      <!-- Token info grid -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+          <p class="text-xs text-violet-400 mb-1.5 uppercase tracking-widest">Name</p>
+          <p id="infoName" class="font-semibold text-sm text-violet-800">—</p>
+        </div>
+        <div class="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+          <p class="text-xs text-violet-400 mb-1.5 uppercase tracking-widest">Symbol</p>
+          <p id="infoSymbol" class="font-mono font-semibold text-sm text-violet-800">—</p>
+        </div>
+        <div class="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+          <p class="text-xs text-violet-400 mb-1.5 uppercase tracking-widest">Decimals</p>
+          <p id="infoDecimals" class="font-mono font-semibold text-sm text-violet-800">—</p>
+        </div>
+      </div>
+      <div class="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+        <p class="text-xs text-violet-400 mb-1.5 uppercase tracking-widest">Total Supply</p>
+        <p id="infoSupply" class="font-mono font-semibold text-sm text-violet-800">—</p>
+      </div>
+      <!-- Connect prompt if not connected -->
+      <div id="connectPrompt" class="rounded-2xl border border-dashed border-violet-200 p-8 text-center">
+        <p class="text-sm text-violet-400 mb-3">Connect your wallet to view token details</p>
+        <button onclick="connectWallet()"
+          class="text-xs font-medium px-5 py-2.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-all">
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+
+    <!-- TRANSFER TAB -->
+    <div id="panel-transfer" class="tab-panel hidden">
+      <div class="rounded-2xl border border-violet-100 bg-white p-7 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-violet-400 mb-0.5">Transfer Tokens</h2>
+          <p class="text-xs text-violet-300">Send tokens directly from your wallet to any address.</p>
+        </div>
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Recipient Address</label>
+            <input id="to" placeholder="0x..." class="inp" />
+          </div>
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Amount</label>
+            <div class="relative">
+              <input id="amount" placeholder="0.00" type="number" class="inp pr-14" />
+              <span id="transferSymbol" class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-violet-400">MTK</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="transfer()" class="btn-primary mt-2">Send Tokens →</button>
+      </div>
+    </div>
+
+    <!-- APPROVE TAB -->
+    <div id="panel-approve" class="tab-panel hidden">
+      <div class="rounded-2xl border border-violet-100 bg-white p-7 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-violet-400 mb-0.5">Approve Spender</h2>
+          <p class="text-xs text-violet-300">Allow another address to spend tokens on your behalf.</p>
+        </div>
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Spender Address</label>
+            <input id="spender" placeholder="0x..." class="inp" />
+          </div>
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Allowance Amount</label>
+            <div class="relative">
+              <input id="approveAmount" placeholder="0.00" type="number" class="inp pr-14" />
+              <span id="approveSymbol" class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-violet-400">MTK</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="approve()" class="btn-outline mt-2">Set Approval →</button>
+      </div>
+    </div>
+
+    <!-- TRANSFER FROM TAB -->
+    <div id="panel-transferfrom" class="tab-panel hidden">
+      <div class="rounded-2xl border border-violet-100 bg-white p-7 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-violet-400 mb-0.5">Transfer From</h2>
+          <p class="text-xs text-violet-300">Spend tokens you've been approved to use by another address.</p>
+        </div>
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">From Address</label>
+            <input id="fromAddr" placeholder="0x..." class="inp" />
+          </div>
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">To Address</label>
+            <input id="toAddr" placeholder="0x..." class="inp" />
+          </div>
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Amount</label>
+            <div class="relative">
+              <input id="transferFromAmount" placeholder="0.00" type="number" class="inp pr-14" />
+              <span id="tfSymbol" class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-mono text-violet-400">MTK</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="transferFrom()" class="btn-outline mt-2">Execute Transfer →</button>
+      </div>
+    </div>
+
+    <!-- ALLOWANCE TAB -->
+    <div id="panel-allowance" class="tab-panel hidden">
+      <div class="rounded-2xl border border-violet-100 bg-white p-7 shadow-sm space-y-4">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-violet-400 mb-0.5">Check Allowance</h2>
+          <p class="text-xs text-violet-300">Query how many tokens a spender is allowed to use from an owner's balance.</p>
+        </div>
+        <div class="space-y-3 pt-1">
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Owner Address</label>
+            <input id="allowanceOwner" placeholder="0x..." class="inp" />
+          </div>
+          <div>
+            <label class="text-xs text-violet-500 mb-1.5 block">Spender Address</label>
+            <input id="allowanceSpender" placeholder="0x..." class="inp" />
+          </div>
+        </div>
+        <button onclick="checkAllowance()" class="btn-outline mt-2">Check Allowance →</button>
+        <!-- Result -->
+        <div id="allowanceResultBox" class="hidden rounded-xl bg-violet-50 border border-violet-100 px-5 py-4 mt-1">
+          <p class="text-xs text-violet-400 uppercase tracking-widest mb-1">Allowance</p>
+          <p id="allowanceResult" class="font-mono text-2xl font-semibold text-violet-700">—</p>
+          <p id="allowanceSymbolResult" class="text-xs font-mono text-violet-300 mt-0.5">MTK</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-violet-900 text-white text-xs font-medium px-5 py-3 rounded-full shadow-xl z-50 whitespace-nowrap">
+    <span class="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0"></span>
+    <span id="toastMsg"></span>
+  </div>
+
+  <style>
+    .inp {
+      width: 100%;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: rgb(245 243 255);
+      border: 1px solid rgb(237 233 254);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      color: rgb(76 29 149);
+      outline: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .inp::placeholder { color: rgb(196 181 253); }
+    .inp:focus { box-shadow: 0 0 0 2px rgb(139 92 246 / 0.35); border-color: rgb(139 92 246); }
+    .btn-primary {
+      width: 100%;
+      background: rgb(109 40 217);
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.8rem;
+      border-radius: 0.75rem;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-primary:hover { background: rgb(91 33 182); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-outline {
+      width: 100%;
+      border: 1.5px solid rgb(221 214 254);
+      color: rgb(109 40 217);
+      font-size: 0.8rem;
+      font-weight: 500;
+      padding: 0.8rem;
+      border-radius: 0.75rem;
+      background: white;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-outline:hover { background: rgb(245 243 255); }
+    .btn-outline:active { transform: scale(0.98); }
+  </style>
+
+  <script>
+    let provider, signer, contract, tokenDecimals = 18, tokenSymbol = "MTK";
+    const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const abi = [
+      "function name() view returns (string)",
+      "function symbol() view returns (string)",
+      "function decimals() view returns (uint8)",
+      "function totalSupply() view returns (uint256)",
+      "function balanceOf(address) view returns (uint256)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function transfer(address to, uint256 amount) returns (bool)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function transferFrom(address from, address to, uint256 amount) returns (bool)"
+    ];
+
+    // --- Address helper: bypasses ENS on local networks ---
+    function addr(raw) {
+      try { return ethers.getAddress(raw.trim()); }
+      catch { throw new Error("Invalid address: " + raw); }
+    }
+
+    // --- Tab switching ---
+    function switchTab(name) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('border-violet-600', 'text-violet-700');
+        b.classList.add('border-transparent', 'text-violet-400');
+      });
+      document.getElementById('panel-' + name).classList.remove('hidden');
+      const btn = document.getElementById('tab-' + name);
+      btn.classList.add('border-violet-600', 'text-violet-700');
+      btn.classList.remove('border-transparent', 'text-violet-400');
+    }
+
+    // --- Toast ---
+    let toastTimer;
+    function showToast(msg, persist = false) {
+      clearTimeout(toastTimer);
+      const toast = document.getElementById("toast");
+      document.getElementById("toastMsg").innerText = msg;
+      toast.classList.remove("hidden");
+      if (!persist) toastTimer = setTimeout(() => toast.classList.add("hidden"), 3500);
+    }
+
+    // --- Connect Wallet ---
+    async function connectWallet() {
+      if (!window.ethereum) { showToast("MetaMask not found"); return; }
+      try {
+        provider = new ethers.BrowserProvider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = await provider.getSigner();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+
+        const [name, symbol, decimals, supply] = await Promise.all([
+          contract.name(), contract.symbol(), contract.decimals(), contract.totalSupply()
+        ]);
+        tokenDecimals = Number(decimals);
+        tokenSymbol = symbol;
+
+        const supplyFormatted = Number(ethers.formatUnits(supply, tokenDecimals)).toLocaleString() + " " + symbol;
+
+        // Update all symbol placeholders
+        ['tokenSymbol','infoSymbol'].forEach(id => document.getElementById(id).innerText = symbol);
+        ['transferSymbol','approveSymbol','tfSymbol','allowanceSymbolResult'].forEach(id => document.getElementById(id).innerText = symbol);
+        document.getElementById('balanceSymbol').innerText = symbol;
+        document.getElementById('tokenLabel').innerText = name;
+        document.getElementById('infoName').innerText = name;
+        document.getElementById('infoDecimals').innerText = decimals.toString();
+        document.getElementById('infoSupply').innerText = supplyFormatted;
+        document.getElementById('totalSupply').innerText = supplyFormatted;
+        document.title = `${name} Dashboard`;
+
+        const address = await signer.getAddress();
+        document.getElementById("wallet").innerText = address;
+        document.getElementById("walletStrip").classList.remove("hidden");
+        document.getElementById("connectPrompt").classList.add("hidden");
+
+        const short = address.slice(0, 6) + "…" + address.slice(-4);
+        const btn = document.getElementById("connectBtn");
+        btn.innerText = short;
+        btn.className = "text-xs font-medium px-4 py-2 rounded-full border border-violet-100 bg-violet-50 text-violet-600 cursor-default";
+
+        await getBalance();
+        showToast("Wallet connected ✓");
+      } catch (err) { showToast("Connection failed"); console.error(err); }
+    }
+
+    async function getBalance() {
+      if (!contract) { showToast("Connect wallet first"); return; }
+      try {
+        const address = await signer.getAddress();
+        const balance = await contract.balanceOf(address);
+        document.getElementById("balance").innerText =
+          Number(ethers.formatUnits(balance, tokenDecimals)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+      } catch (err) { showToast("Error fetching balance"); console.error(err); }
+    }
+
+    async function checkAllowance() {
+      if (!contract) { showToast("Connect wallet first"); return; }
+      try {
+        const owner = addr(document.getElementById("allowanceOwner").value);
+        const spender = addr(document.getElementById("allowanceSpender").value);
+        const amount = await contract.allowance(owner, spender);
+        document.getElementById("allowanceResult").innerText =
+          Number(ethers.formatUnits(amount, tokenDecimals)).toLocaleString(undefined, { maximumFractionDigits: 6 });
+        document.getElementById("allowanceResultBox").classList.remove("hidden");
+      } catch (err) { showToast("Invalid addresses"); console.error(err); }
+    }
+
+    async function transfer() {
+      if (!contract) { showToast("Connect wallet first"); return; }
+      try {
+        const to = addr(document.getElementById("to").value);
+        const amount = document.getElementById("amount").value;
+        showToast("Awaiting confirmation…", true);
+        const tx = await contract.transfer(to, ethers.parseUnits(amount, tokenDecimals));
+        showToast("Transaction sent…", true);
+        await tx.wait();
+        showToast("Transfer successful ✓");
+        await getBalance();
+      } catch (err) { showToast("Transfer failed"); console.error(err); }
+    }
+
+    async function approve() {
+      if (!contract) { showToast("Connect wallet first"); return; }
+      try {
+        const spender = addr(document.getElementById("spender").value);
+        const amount = document.getElementById("approveAmount").value;
+        showToast("Awaiting confirmation…", true);
+        const tx = await contract.approve(spender, ethers.parseUnits(amount, tokenDecimals));
+        await tx.wait();
+        showToast("Approved ✓");
+      } catch (err) { showToast("Approval failed"); console.error(err); }
+    }
+
+    async function transferFrom() {
+      if (!contract) { showToast("Connect wallet first"); return; }
+      try {
+        const from = addr(document.getElementById("fromAddr").value);
+        const to = addr(document.getElementById("toAddr").value);
+        const amount = document.getElementById("transferFromAmount").value;
+        showToast("Awaiting confirmation…", true);
+        const tx = await contract.transferFrom(from, to, ethers.parseUnits(amount, tokenDecimals));
+        await tx.wait();
+        showToast("TransferFrom successful ✓");
+        await getBalance();
+      } catch (err) { showToast("TransferFrom failed"); console.error(err); }
+    }
+  </script>
+</body>
+</html>

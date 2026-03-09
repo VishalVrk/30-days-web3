@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-3488ea731657b6c8b1b89c0a1fad1bdb3bb89af8",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/SecureAuction.sol": "project/contracts/SecureAuction.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/SecureAuction.sol": {
+        "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.28;\n\ncontract SecureAuction {\n    address public owner;\n    uint256 public auctionEnd;\n\n    address public highestBidder;\n    uint256 public highestBid;\n\n    uint256 public minIncrement = 0.01 ether;\n\n    bool public ended;\n\n    mapping(address => uint256) public pendingReturns;\n\n    bool private locked;\n\n    modifier noReentrancy() {\n        require(!locked, \"Reentrancy detected\");\n        locked = true;\n        _;\n        locked = false;\n    }\n\n    event BidPlaced(address bidder, uint256 amount);\n    event Withdrawal(address bidder, uint256 amount);\n    event AuctionEnded(address winner, uint256 amount);\n\n    constructor(uint256 duration) {\n        owner = msg.sender;\n        auctionEnd = block.timestamp + duration;\n    }\n\n    function bid() external payable {\n\n        require(block.timestamp < auctionEnd, \"Auction ended\");\n\n        require(\n            msg.value >= highestBid + minIncrement,\n            \"Bid increment too small\"\n        );\n\n        if (highestBid != 0) {\n            pendingReturns[highestBidder] += highestBid;\n        }\n\n        highestBidder = msg.sender;\n        highestBid = msg.value;\n\n        emit BidPlaced(msg.sender, msg.value);\n    }\n\n    function withdraw() external noReentrancy {\n\n        uint256 amount = pendingReturns[msg.sender];\n\n        require(amount > 0, \"No funds\");\n\n        pendingReturns[msg.sender] = 0;\n\n        (bool success, ) = msg.sender.call{value: amount}(\"\");\n\n        require(success, \"Transfer failed\");\n\n        emit Withdrawal(msg.sender, amount);\n    }\n\n    function endAuction() external {\n\n        require(block.timestamp >= auctionEnd, \"Auction still active\");\n        require(!ended, \"Already ended\");\n\n        ended = true;\n\n        (bool success, ) = owner.call{value: highestBid}(\"\");\n\n        require(success, \"Transfer failed\");\n\n        emit AuctionEnded(highestBidder, highestBid);\n    }\n\n}"
+      }
+    }
+  }
+}
